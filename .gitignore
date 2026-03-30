@@ -1,0 +1,27 @@
+# ================================================================
+# .gitignore — Musculo VPS 2 | Aliun Travel SRL
+# ================================================================
+
+# ── SECRETOS — NUNCA subir al repo ───────────────────────────────
+.env
+*.env.local
+*.env.production
+*.env.staging
+
+# ── DATOS PERSISTENTES DE DOCKER ─────────────────────────────
+# Volúmenes locales (si se montan como carpetas en lugar de volúmenes nombrados)
+paperclip_db_data/
+paperclip_data/
+workspaces_data/
+ollama_models/
+
+# ── LOGS ────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── NODE (si hay dependencias locales de los agentes) ──────────────
+node_modules/
+
+# ── OS ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
