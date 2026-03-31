@@ -1,0 +1,199 @@
+{
+  "_comment": "Configuración de la empresa ALIUN TRAVEL en Paperclip",
+  "_comment2": "Importar en: paperclip.aliuntravelsrl.com → Companies → Import",
+  "_version": "paperclip-company-v1",
+
+  "company": {
+    "name": "ALIUN TRAVEL SRL",
+    "mission": "Ser la agencia de viajes dominicana líder en conversión digital, operando con 8 agentes IA autónomos que generan y convierten demanda de paquetes todo-incluido 24/7, con precio transparente y cero neuromarketing.",
+    "budget_monthly_usd": 250,
+    "timezone": "America/Santo_Domingo",
+    "currency": "USD"
+  },
+
+  "departments": [
+    {
+      "id": "dept_ventas",
+      "name": "ATLAS-SALES",
+      "description": "Motor de ventas — agente IA en WhatsApp via Kommo",
+      "runtime": "n8n_vps1",
+      "note": "Este departamento vive en VPS 1. Paperclip lo monitora pero no lo ejecuta."
+    },
+    {
+      "id": "dept_marketing",
+      "name": "ATLAS-MARKETING",
+      "description": "5 agentes estratégicos de marketing",
+      "runtime": "http",
+      "endpoint": "http://atlas_marketing:4000"
+    },
+    {
+      "id": "dept_content",
+      "name": "ATLAS-CONTENT (Antigravity Squad)",
+      "description": "Copywriter + Director de Arte + Revisor",
+      "runtime": "http",
+      "endpoint": "http://antigravity:3000"
+    }
+  ],
+
+  "agents": [
+    {
+      "id": "agent_aldo_ceo",
+      "name": "Aldo Hilario",
+      "role": "CEO / Director de Sistemas",
+      "type": "human_board",
+      "department": null,
+      "reports_to": null,
+      "description": "Director ejecutivo. Aprueba estrategias, presupuestos y publicaciones de ofertas.",
+      "budget_monthly_usd": 0,
+      "is_board": true
+    },
+    {
+      "id": "agent_atlas_tech",
+      "name": "ATLAS-TECH",
+      "role": "Director Técnico",
+      "type": "claude_code",
+      "department": null,
+      "reports_to": "agent_aldo_ceo",
+      "description": "Arquitectura de sistemas, workflows n8n, migraciones Supabase. Modelo: Claude Sonnet 4.",
+      "budget_monthly_usd": 20,
+      "skills_file": ".claude/skills/atlas-tech-context.md"
+    },
+    {
+      "id": "agent_content_messaging",
+      "name": "Content & Messaging",
+      "role": "Estratega de Contenido",
+      "type": "http",
+      "department": "dept_marketing",
+      "reports_to": "agent_aldo_ceo",
+      "endpoint": "http://atlas_marketing:4000/api/v1/marketing/content-messaging",
+      "heartbeat_schedule": "0 8 * * 1,3,5",
+      "description": "Genera strategic_briefs para el Escuadrón. Lun/Mié/Vie 8AM.",
+      "budget_monthly_usd": 5
+    },
+    {
+      "id": "agent_cro_funnel",
+      "name": "CRO & Funnel",
+      "role": "Analista de Conversión",
+      "type": "http",
+      "department": "dept_marketing",
+      "reports_to": "agent_content_messaging",
+      "endpoint": "http://atlas_marketing:4000/api/v1/marketing/cro-funnel",
+      "heartbeat_schedule": "0 9 * * 1",
+      "description": "Análisis semanal de métricas. Lunes 9AM.",
+      "budget_monthly_usd": 3
+    },
+    {
+      "id": "agent_competitive",
+      "name": "Competitive Positioning",
+      "role": "Analista de Mercado",
+      "type": "http",
+      "department": "dept_marketing",
+      "reports_to": "agent_content_messaging",
+      "endpoint": "http://atlas_marketing:4000/api/v1/marketing/competitive",
+      "heartbeat_schedule": "0 10 * * 1,4",
+      "description": "Intel de mercado. Lun y Jue 10AM. Requiere Perplexity API.",
+      "budget_monthly_usd": 3
+    },
+    {
+      "id": "agent_seo",
+      "name": "Technical SEO",
+      "role": "SEO Técnico",
+      "type": "http",
+      "department": "dept_marketing",
+      "reports_to": "agent_content_messaging",
+      "endpoint": "http://atlas_marketing:4000/api/v1/marketing/seo",
+      "heartbeat_schedule": "0 7 * * 2",
+      "description": "Genera meta_tags para ofertas nuevas. Martes 7AM.",
+      "budget_monthly_usd": 2
+    },
+    {
+      "id": "agent_brand",
+      "name": "Brand Strategy",
+      "role": "Guardián de Marca",
+      "type": "http",
+      "department": "dept_marketing",
+      "reports_to": "agent_content_messaging",
+      "endpoint": "http://atlas_marketing:4000/api/v1/marketing/brand",
+      "heartbeat_schedule": "0 11 * * 5",
+      "description": "Auditoría de coherencia de marca. Viernes 11AM.",
+      "budget_monthly_usd": 3
+    },
+    {
+      "id": "agent_copywriter",
+      "name": "Copywriter",
+      "role": "Redactor Creativo",
+      "type": "http",
+      "department": "dept_content",
+      "reports_to": "agent_content_messaging",
+      "endpoint": "http://antigravity:3000/api/v1/squad/marketing",
+      "heartbeat_schedule": null,
+      "description": "Activado por evento — cuando llega nueva oferta aprobada. Genera copy para 4 plataformas.",
+      "budget_monthly_usd": 5
+    },
+    {
+      "id": "agent_arte",
+      "name": "Director de Arte",
+      "role": "Director Visual",
+      "type": "http",
+      "department": "dept_content",
+      "reports_to": "agent_copywriter",
+      "endpoint": "http://antigravity:3000/api/v1/squad/marketing",
+      "heartbeat_schedule": null,
+      "description": "Genera art_prompt para fal.ai. Activado en secuencia del Squad.",
+      "budget_monthly_usd": 3
+    },
+    {
+      "id": "agent_revisor",
+      "name": "Agente Revisor",
+      "role": "Control de Calidad",
+      "type": "http",
+      "department": "dept_content",
+      "reports_to": "agent_aldo_ceo",
+      "endpoint": "http://antigravity:3000/api/v1/squad/marketing",
+      "heartbeat_schedule": null,
+      "description": "GO/NO-GO antes de publicación. Emite aprobación a WF_003.",
+      "budget_monthly_usd": 2,
+      "requires_board_approval": true
+    },
+
+    {
+      "id": "agent_openclaw_vps3",
+      "name": "OpenClaw",
+      "role": "Agente Ejecutor Autónomo",
+      "type": "http",
+      "department": null,
+      "reports_to": "agent_aldo_ceo",
+      "endpoint": "PENDIENTE — vps3.aliuntravelsrl.com/api/heartbeat",
+      "heartbeat_schedule": "*/30 * * * *",
+      "description": "VPS 3 FUTURO. OpenClaw como ejecutor 24/7 conectado a Telegram/WhatsApp. Orquestado desde Paperclip.",
+      "budget_monthly_usd": 15,
+      "status": "planned"
+    }
+  ],
+
+  "governance_rules": {
+    "board_approval_required_for": [
+      "Nueva oferta publicada a redes sociales",
+      "Presupuesto de agente superado en >80%",
+      "Contratación de nuevo agente",
+      "Modificación de CONTEXT.md de cualquier agente"
+    ],
+    "auto_approved": [
+      "Auditorías SEO de ofertas existentes",
+      "Análisis CRO semanal",
+      "Intel competitivo de Perplexity",
+      "Generación de copy (fluye a revisión, no a publicación directa)"
+    ]
+  },
+
+  "heartbeat_pipeline": {
+    "description": "Flujo automático cuando entra nueva tarifa en Core 1",
+    "trigger": "Supabase → marketing_offers nuevo registro con is_published=true",
+    "sequence": [
+      "1. ATLAS-MARKETING full-pipeline (brief + SEO + brand check)",
+      "2. Antigravity Squad (copy + arte + revisión)",
+      "3. [BOARD] Aldo aprueba via Telegram",
+      "4. WF_003 publica en 4 plataformas vía Blotato"
+    ]
+  }
+}
