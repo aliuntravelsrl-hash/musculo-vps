@@ -1,0 +1,243 @@
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════════════
+#  VPS 2 — EL MÚSCULO | ALIUN TRAVEL SRL
+#  Stack completo: Paperclip + Antigravity + ATLAS-MARKETING + Ollama
+#  Panel: Dokploy (Traefik como reverse proxy interno)
+#  Repo: aliuntravelsrl-hash/musculo-vps
+# ═══════════════════════════════════════════════════════════════════════
+#
+#  SUBDOMINIOS CONFIGURADOS EN DOKPLOY:
+#  ┌─────────────────────────────────────────────────────────┐
+#  │  paperclip.aliuntravelsrl.com  →  :3100  (Orquestador) │
+#  │  antigravity.aliuntravelsrl.com → :3000  (Squad)       │
+#  │  marketing.aliuntravelsrl.com   → :4000  (Marketing)   │
+#  │  ollama (solo red interna)      → :11434               │
+#  └─────────────────────────────────────────────────────────┘
+#
+#  VPS 3 FUTURO: OpenClaw se conecta a Paperclip como agente HTTP
+#  desde vps3.aliuntravelsrl.com → Paperclip lo orquesta via heartbeat
+
+services:
+
+  # ────────────────────────────────────────────────────────────────
+  # 1. PAPERCLIP — El Director de la Empresa
+  #    Orquesta todos los agentes con org chart, tickets, budgets
+  #    VPS 3 (OpenClaw) se registrará aquí como agente HTTP
+  # ────────────────────────────────────────────────────────────────
+  paperclip:
+    image: paperclipai/paperclip:latest
+    container_name: aliun_paperclip
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    environment:
+      - NODE_ENV=production
+      - PORT=3100
+      # Base de datos propia — Postgres embebido
+      - DATABASE_URL=postgresql://paperclip:${PAPERCLIP_DB_PASS}@paperclip_db:5432/paperclip
+      # Auth de la UI
+      - PAPERCLIP_ADMIN_EMAIL=${PAPERCLIP_ADMIN_EMAIL}
+      - PAPERCLIP_ADMIN_PASSWORD=${PAPERCLIP_ADMIN_PASSWORD}
+      # Workspace persistente para skills y contexto de agentes
+      - PAPERCLIP_DATA_DIR=/data/paperclip
+      # URLs internas de los agentes que Paperclip orquesta
+      - ANTIGRAVITY_URL=http://antigravity:3000
+      - ATLAS_MARKETING_URL=http://atlas_marketing:4000
+    volumes:
+      - paperclip_data:/data/paperclip
+    networks:
+      - musculo_net
+    labels:
+      # Traefik / Dokploy — exposición pública con SSL
+      - "traefik.enable=true"
+      - "traefik.http.routers.paperclip.rule=Host(`paperclip.aliuntravelsrl.com`)"
+      - "traefik.http.routers.paperclip.tls.certresolver=letsencrypt"
+      - "traefik.http.services.paperclip.loadbalancer.server.port=3100"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      paperclip_db:
+        condition: service_healthy
+
+  # ────────────────────────────────────────────────────────────────
+  # 2. PAPERCLIP DB — PostgreSQL dedicado para Paperclip
+  #    Separado de Supabase — datos organizacionales del squad
+  # ────────────────────────────────────────────────────────────────
+  paperclip_db:
+    image: postgres:16-alpine
+    container_name: aliun_paperclip_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=paperclip
+      - POSTGRES_USER=paperclip
+      - POSTGRES_PASSWORD=${PAPERCLIP_DB_PASS}
+    volumes:
+      - paperclip_db_data:/var/lib/postgresql/data
+    networks:
+      - musculo_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperclip -d paperclip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Postgres NO se expone al exterior — solo red interna
+
+  # ────────────────────────────────────────────────────────────────
+  # 3. ANTIGRAVITY SQUAD v2.0
+  #    Copywriter + Director de Arte + Revisor
+  #    Orquestado por Paperclip como agente HTTP en puerto 3000
+  # ────────────────────────────────────────────────────────────────
+  antigravity:
+    build:
+      context: ./antigravity-squad
+      dockerfile: Dockerfile
+    container_name: aliun_antigravity
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - WORKSPACE_ROOT=/workspaces/ALIUN_ATLAS
+      - OLLAMA_URL=http://ollama:11434
+      # Token para que Paperclip autentique sus heartbeats
+      - PAPERCLIP_HEARTBEAT_TOKEN=${INTER_VPS_TOKEN}
+    volumes:
+      - workspaces_data:/workspaces/ALIUN_ATLAS
+    networks:
+      - musculo_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.antigravity.rule=Host(`antigravity.aliuntravelsrl.com`)"
+      - "traefik.http.routers.antigravity.tls.certresolver=letsencrypt"
+      - "traefik.http.services.antigravity.loadbalancer.server.port=3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health',(r)=>{process.exit(r.statusCode===200?0:1)})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  # ────────────────────────────────────────────────────────────────
+  # 4. ATLAS-MARKETING v1.0
+  #    5 agentes estratégicos: Content, CRO, Competitive, SEO, Brand
+  #    Orquestado por Paperclip como agente HTTP en puerto 4000
+  # ────────────────────────────────────────────────────────────────
+  atlas_marketing:
+    build:
+      context: ./atlas-marketing
+      dockerfile: Dockerfile
+    container_name: aliun_atlas_marketing
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+      - WORKSPACE_ROOT=/workspaces/ALIUN_ATLAS
+      - OLLAMA_URL=http://ollama:11434
+      - PAPERCLIP_HEARTBEAT_TOKEN=${INTER_VPS_TOKEN}
+    volumes:
+      - workspaces_data:/workspaces/ALIUN_ATLAS
+    networks:
+      - musculo_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.marketing.rule=Host(`marketing.aliuntravelsrl.com`)"
+      - "traefik.http.routers.marketing.tls.certresolver=letsencrypt"
+      - "traefik.http.services.marketing.loadbalancer.server.port=4000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health',(r)=>{process.exit(r.statusCode===200?0:1)})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  # ────────────────────────────────────────────────────────────────
+  # 5. OLLAMA — Motor LLM Local
+  #    Llama 3.1 para análisis a $0 y privacidad total
+  #    NO expuesto al exterior — solo red interna Docker
+  # ────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: aliun_ollama
+    restart: unless-stopped
+    # Puerto 11434 solo disponible internamente — sin labels Traefik
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - musculo_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ────────────────────────────────────────────────────────────────
+  # 6. OLLAMA MODEL PULLER (one-shot)
+  #    Descarga llama3.1 al primer inicio (~4.5GB, ~10-15 min)
+  # ────────────────────────────────────────────────────────────────
+  ollama_pull:
+    image: ollama/ollama:latest
+    container_name: aliun_ollama_pull
+    restart: "no"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - musculo_net
+    entrypoint: >
+      sh -c "sleep 20 && ollama pull llama3.1 && echo '[OLLAMA] llama3.1 listo'"
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+# ─── VOLÚMENES PERSISTENTES ─────────────────────────────────────────
+volumes:
+  paperclip_data:
+    driver: local
+    # Org chart, tickets, audit log de Paperclip
+    # HACER BACKUP SEMANAL — contiene historial de decisiones
+
+  paperclip_db_data:
+    driver: local
+    # PostgreSQL de Paperclip
+    # HACER BACKUP SEMANAL
+
+  workspaces_data:
+    driver: local
+    # CONTEXT.md y DECISIONS_LOG.md de los 8 agentes
+    # HACER BACKUP SEMANAL
+
+  ollama_models:
+    driver: local
+    # Modelos descargados (~5GB llama3.1)
+    # No necesita backup — se re-descarga automáticamente
+
+# ─── RED INTERNA ────────────────────────────────────────────────────
+networks:
+  musculo_net:
+    driver: bridge
+    # Todos los servicios se comunican por nombre:
+    # http://paperclip:3100, http://antigravity:3000
+    # http://atlas_marketing:4000, http://ollama:11434
