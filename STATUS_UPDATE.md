@@ -1,26 +1,38 @@
-# 🚀 Actualización de Infraestructura: Músculo VPS 2 / Agentes
+# 🧠 Cerebro Cognitivo y Estado del Proyecto: Músculo VPS 2 / Agentes
 
-## 📋 Resumen del Avance
-Esta actualización documenta el progreso de inicialización del servidor **Músculo VPS 2**, el cual está diseñado para orquestar de manera conjunta **Paperclip**, **Antigravity Squad** (nuestro equipo corporativo), **Atlas Marketing** y el modelo base **Ollama**.
+## 📋 Resumen del Proyecto y Arquitectura Actual
+Este documento sirve como "Cerebro Cognitivo" (`Cognitive Brain`) y de Tracking. Su objetivo principal es permitir que cualquier Agente o IA intergrada al proyecto comprenda instantáneamente el contexto espacial, de avance y estructural de este repositorio con la mejor higiene técnica posible.
 
-## ✅ Tareas Completadas
+El servidor **Músculo VPS 2** es una infraestructura especializada diseñada para orquestar de manera conjunta **Paperclip** (orquestador), **Antigravity Squad** (equipo corporativo) y **Atlas Marketing** (agencia autónoma), soportado por el motor base de **Ollama**.
 
-* **Diseño y Estructuración de Workspaces:** 
-  * Se definieron e inicializaron las carpetas físicas (`workspaces/ALIUN_ATLAS/`) que actuarán como repositorios y entornos de trabajo para los 8 agentes en ejecución.
-* **Organización del Motor de Agentes (`.agents/`):**
-  * Se desplegó la arquitectura interna de directorios (`.agents/skills/`) destinada a almacenar los comportamientos, prompts y utilidades (`SKILL.md`) necesarios para la orquestación.
+## 🏗️ Arquitectura de los Escuadrones Definidos
 
-## 🏗️ Arquitectura de los Agentes Definidos
+El VPS servirá a dos escuadrones principales de operaciones:
 
-El VPS servirá a dos escuadrones principales:
-1. **Antigravity Squad:** Soporte al workflow con *Copywriter, Director de arte y Revisor*.
-2. **Atlas Marketing:** Escuadrón dedicado de 5 perfiles estratégicos (*Brand, Content, CRO, Competitive Intelligence, SEO*).
+1. **Antigravity Squad** (Soporte Crítico de la Agencia):
+   - *Copywriter*
+   - *Director de Arte*
+   - *Revisor de Calidad*
 
-## ⏳ Próximos Pasos (Pendientes)
+2. **Atlas Marketing** (Escuadrón Estratégico Integrado):
+   - *Brand Strategist*
+   - *Content Creator*
+   - *CRO Specialist*
+   - *Competitive Intelligence*
+   - *SEO Specialist*
 
-- [ ] Importación y configuración de las Habilidades Avanzadas (`SKILL.md`) para todo el catálogo de agentes mencionados.
-- [ ] Construcción del archivo `.env` de producción a partir de `.env.example`, para enrutar los contenedores y los servicios LLM locales/remotos.
-- [ ] Pruebas del Docker Compose con la base de datos y validación de conectividad.
+## ✅ Estado de Avance (Hitos Completados)
+
+- [x] **Estructuración de Workspaces Volátiles:** Volúmenes y carpetas inicializadas (`workspaces/ALIUN_ATLAS/`) configuradas como repositorios y entornos de ejecución in-memory/file-based para la orquestación.
+- [x] **Organización del Motor de Agentes (`.agents/`):** Arquitectura jerárquica desplegada.
+- [x] **Ingesta de Habilidades (`SKILL.md`):** Se inyectaron correctamente los módulos `.agents/skills/.../SKILL.md` dotando de capacidad base al catálogo completo de los 8 perfiles.
+- [x] **Control de Versiones Limpio:** Estructuras como `.gitignore` actualizadas y repositorio correctamente sincronizado (Pull, Rebase y Push) para mantener código seguro.
+
+## ⏳ Próximos Pasos (Roadmap de Infraestructura)
+
+- [ ] **Definición de Variables en Producción:** Compilar el `.env` final (partiendo de `.env.example`), garantizando que contenedores, redes y las APIs (Ollama, UI) queden fluidamente emparejadas.
+- [ ] **Despliegue del Stack (Docker Compose):** Levantar finalmente los contenedores pertinentes (Database, Paperclip, etc.) mediante comandos Docker y evaluar los *health-checks*.
+- [ ] **Validación Integradora de Red:** Probar conectividad interna para verificar que los Agentes puedan interactuar libremente dentro de los "workspaces" y comunicarse con los hooks de n8n/Ollama sin interrupciones.
 
 ---
-*Documentación generada automáticamente durante la sesión técnica para control de versiones.*
+*Última actualización autogenerada en sesión técnica de Ingeniería de Prompts e Infraestructura.*
