@@ -26,13 +26,14 @@ El VPS servirá a dos escuadrones principales de operaciones:
 - [x] **Estructuración de Workspaces Volátiles:** Volúmenes y carpetas inicializadas (`workspaces/ALIUN_ATLAS/`) configuradas como repositorios y entornos de ejecución in-memory/file-based para la orquestación.
 - [x] **Organización del Motor de Agentes (`.agents/`):** Arquitectura jerárquica desplegada.
 - [x] **Ingesta de Habilidades (`SKILL.md`):** Se inyectaron correctamente los módulos `.agents/skills/.../SKILL.md` dotando de capacidad base al catálogo completo de los 8 perfiles.
-- [x] **Control de Versiones Limpio:** Estructuras como `.gitignore` actualizadas y repositorio correctamente sincronizado (Pull, Rebase y Push) para mantener código seguro.
+- [x] **Control de Versiones Limpio:** Estructuras como `.gitignore` y `.env.example` actualizadas y listas para mantener código seguro.
+- [x] **Levantamiento del Entorno Base (Docker Compose):** Contenedores de Atlas Marketing, Antigravity Squad y Ollama Local desplegados localmente con éxito y listos para procesar los endpoints.
 
-## ⏳ Próximos Pasos (Roadmap de Infraestructura)
+## ⏳ Próximos Pasos (Roadmap y Estrategia Arquitectónica)
 
-- [ ] **Definición de Variables en Producción:** Compilar el `.env` final (partiendo de `.env.example`), garantizando que contenedores, redes y las APIs (Ollama, UI) queden fluidamente emparejadas.
-- [ ] **Despliegue del Stack (Docker Compose):** Levantar finalmente los contenedores pertinentes (Database, Paperclip, etc.) mediante comandos Docker y evaluar los *health-checks*.
-- [ ] **Validación Integradora de Red:** Probar conectividad interna para verificar que los Agentes puedan interactuar libremente dentro de los "workspaces" y comunicarse con los hooks de n8n/Ollama sin interrupciones.
+- [ ] **Mesa Redonda Estratégica:** Sesión de diseño conjunta entre Perplexity (Research de Mercado), Claude Tech (Estructura/Lógica/Narrativa) y Antigravity para definir la distribución, alcance y equilibrio de la carga operativa entre los perfiles creativos de la agencia.
+- [ ] **Integración del Cerebro Orquestador (n8n Local):** Establecer la política de Control Plane vs Data Plane. n8n servirá como servidor independiente orquestando y disparando Webhooks/Endpoints hacia el VPS creativo y distribuyendo la data sin sobrecargar su ejecución.
+- [ ] **Migración/Despliegue (Google Cloud Run o final_VPS):** Tras validar la interconexión con el n8n, se avanzará a empaquetar el flujo y montar SSL y políticas CORS definitivas para producción a gran escala.
 
 ---
 *Última actualización autogenerada en sesión técnica de Ingeniería de Prompts e Infraestructura.*
