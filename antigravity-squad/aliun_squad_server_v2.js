@@ -2,7 +2,7 @@
 // UPGRADE: Sistema de Memoria Organizacional + Cadena de Autoridad + Supabase Log
 require('dotenv').config();
 const express = require('express');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
 
@@ -186,11 +186,12 @@ ${memory.decisions ? `\nDECISIONES RECIENTES:\n${memory.decisions}` : ''}
 }
 
 // ─── FUNCIÓN AUXILIAR: LLAMAR AGENTE ─────────────────────────────────────────
-async function callAgent(systemInstruction, userMessage, modelName = 'gemini-2.0-flash-exp') {
+async function callAgent(systemInstruction, userMessage, modelName = 'gemini-2.5-flash', customConfig = {}) {
+  const generationConfig = { temperature: 0.75, maxOutputTokens: 1024, ...customConfig };
   const model = genAI.getGenerativeModel({
     model: modelName,
     systemInstruction,
-    generationConfig: { temperature: 0.75, maxOutputTokens: 1024 },
+    generationConfig,
   });
   const result = await model.generateContent(userMessage);
   return result.response.text().trim();
@@ -258,7 +259,9 @@ AUTORIZADO POR: ${authorized_by || 'sistema_automatico'}
     const copywriterSystem = buildCopywriterSystem(copywriterMemory);
     const copyText = await callAgent(
       copywriterSystem,
-      `Crea el copy de oferta para este hotel:\n\n${briefing}`
+      `Crea el copy de oferta para este hotel:\n\n${briefing}`,
+      'gemini-2.5-flash',
+      { temperature: 0.7 }
     );
     console.log('[FASE 1] ✓ Copy generado');
 
@@ -272,7 +275,9 @@ AUTORIZADO POR: ${authorized_by || 'sistema_automatico'}
     const artDirectorSystem = buildArtDirectorSystem(artDirectorMemory);
     const artPrompt = await callAgent(
       artDirectorSystem,
-      `Basándote en este copy y briefing, crea el prompt visual:\n\nCOPY:\n${copyText}\n\nBRIEFING:\n${briefing}`
+      `Basándote en este copy y briefing, crea el prompt visual:\n\nCOPY:\n${copyText}\n\nBRIEFING:\n${briefing}`,
+      'gemini-2.5-flash',
+      { temperature: 0.4 }
     );
     console.log('[FASE 2] ✓ Art prompt generado');
 
@@ -296,16 +301,113 @@ DATOS DEL SISTEMA PARA VALIDACIÓN:
 - Tipo de oferta: ${offer_type || 'last_minute'}
     `.trim();
 
-    const rawJson = await callAgent(revisorSystem, revisorInput);
+    const revisorSchema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        copy: { type: SchemaType.STRING },
+        art_prompt: { type: SchemaType.STRING },
+        price_verified: { type: SchemaType.BOOLEAN },
+        emoji_count: { type: SchemaType.INTEGER },
+        word_count: { type: SchemaType.INTEGER },
+        cta_present: { type: SchemaType.BOOLEAN },
+        approved: { type: SchemaType.BOOLEAN },
+        revision_notes: { type: SchemaType.STRING },
+      },
+      required: ["copy", "art_prompt", "price_verified", "emoji_count", "word_count", "cta_present", "approved"],
+    };
+
+    const rawJson = await callAgent(
+      revisorSystem, 
+      revisorInput, 
+      'gemini-2.5-flash',
+      { 
+        temperature: 0.1,
+        responseMimeType: "application/json",
+        responseSchema: revisorSchema
+      }
+    );
+
+    console.log('[DEBUG] rawJson (Revisor):', rawJson);
     const cleanJson = rawJson.replace(/```json\n?|\n?```/g, '').trim();
-    const finalOutput = JSON.parse(cleanJson);
+    console.log('[DEBUG] cleanJson (Revisor):', cleanJson);
+
+    let finalOutput;
+    try {
+      finalOutput = JSON.parse(cleanJson);
+    } catch (parseError) {
+      console.error('[ERROR] Parseo JSON del Revisor falló:', parseError.message);
+      return res.status(502).json({
+        error: 'Bad Gateway: Invalid JSON from Revisor agent',
+        detail: parseError.message,
+        rawResponse: rawJson,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     appendDecisionLog('revisor',
       `Hotel: ${hotel_name} | Aprobado: ${finalOutput.approved} | Notas: ${finalOutput.revision_notes || 'ninguna'}`
     );
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`[SQUAD v2.0] ── Completado en ${elapsed}s | Aprobado: ${finalOutput.approved} ──\n`);
+    console.log(`[SQUAD v2.0] ── Validación terminada en ${elapsed}s | Aprobado: ${finalOutput.approved} ──`);
+
+    // ── FASE 4: PREPARACIÓN COMFYUI WORKFLOW ──
+    console.log('[FASE 4] Inyectando variables en ComfyUI Workflow base...');
+    const comfyWorkflowPath = path.join(__dirname, 'comfyui_story_workflow.json');
+    let comfyPayload = null;
+    let comfyPromptId = null;
+
+    if (fs.existsSync(comfyWorkflowPath)) {
+      let workflowTemplate = fs.readFileSync(comfyWorkflowPath, 'utf8');
+      
+      const seedVal = Math.floor(Math.random() * 9999999999);
+      const widthVal = 768; 
+      const heightVal = 1344;
+      const negativePrompt = "watermark, text, bad anatomy, blurry, unrealistic, ugly artifacts";
+      
+      const safeArtPrompt = (finalOutput.art_prompt || artPrompt).replace(/"/g, '\\"').replace(/\n/g, ' ');
+
+      workflowTemplate = workflowTemplate.replace(/\{\{SEED\}\}/g, seedVal)
+                                         .replace(/\{\{WIDTH\}\}/g, widthVal)
+                                         .replace(/\{\{HEIGHT\}\}/g, heightVal)
+                                         .replace(/\{\{STYLE_PRESET\}\}/g, "highly detailed, 4k resolution, instagram story style")
+                                         .replace(/\{\{ART_PROMPT\}\}/g, safeArtPrompt)
+                                         .replace(/\{\{NEGATIVE_PROMPT\}\}/g, negativePrompt);
+                                         
+      try {
+        comfyPayload = JSON.parse(workflowTemplate);
+        
+        // ── ENVÍO COMFYUI (LOCAL / RUNPOD API) ──
+        const COMFYUI_URL = process.env.COMFYUI_URL || 'http://127.0.0.1:8188';
+        const COMFYUI_BEARER = process.env.COMFYUI_BEARER || '';
+        const isRunPod = COMFYUI_URL.includes('runpod');
+        
+        // El servidor local de ComfyUI usa POST /prompt con { "prompt": workflow }
+        // RunPod Serverless normalmente usa POST /run con { "input": { "workflow": workflow } }
+        const fetchUrl = isRunPod ? `${COMFYUI_URL}/run` : `${COMFYUI_URL}/prompt`;
+        
+        const fetchOpts = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(isRunPod ? { input: { workflow: comfyPayload } } : { prompt: comfyPayload })
+        };
+        
+        if (COMFYUI_BEARER) fetchOpts.headers['Authorization'] = `Bearer ${COMFYUI_BEARER}`;
+
+        console.log(`[FASE 4] Disparando a ComfyUI (Endpoint: ${COMFYUI_URL})...`);
+        const comfyReq = await fetch(fetchUrl, fetchOpts).catch(e => null);
+        
+        if (comfyReq && comfyReq.ok) {
+           const comfyResp = await comfyReq.json();
+           comfyPromptId = isRunPod ? comfyResp.id : comfyResp.prompt_id;
+           console.log(`[FASE 4] ✓ ComfyUI Job aceptado (ID: ${comfyPromptId})`);
+        } else {
+           console.log(`[FASE 4] ⚠ ComfyUI no respondió o endpoint offline (solo MOCK armado)`);
+        }
+      } catch (err) {
+         console.log(`[FASE 4] ⚠ Error al inyectar/enviar payload a ComfyUI: ${err.message}`);
+      }
+    }
 
     // ── LOG A SUPABASE (no bloqueante) ──
     logToSupabase({
@@ -329,6 +431,8 @@ DATOS DEL SISTEMA PARA VALIDACIÓN:
         offer_id:       offer_id || null,
         authorized_by:  authorized_by || 'sistema_automatico',
         squad_version:  '2.0',
+        comfyui_job_id: comfyPromptId || null,
+        comfyui_payload: comfyPayload ? true : false,
         elapsed_seconds: parseFloat(elapsed),
         timestamp:      new Date().toISOString(),
         memory_loaded: {
@@ -421,3 +525,4 @@ app.listen(PORT, () => {
   console.log(`📂 Workspace root: ${WORKSPACE_ROOT}`);
   console.log(`🧠 Sistema de memoria: ACTIVO\n`);
 });
+
