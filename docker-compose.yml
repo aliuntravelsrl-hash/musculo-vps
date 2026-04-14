@@ -1,7 +1,7 @@
 
 services:
   paperclip:
-    image: paperclipai/paperclip:latest
+    image: ghcr.io/paperclipai/paperclip:latest
     container_name: aliun_paperclip
     restart: unless-stopped
     ports:
@@ -13,9 +13,11 @@ services:
       - SERVE_UI=true
       - PAPERCLIP_DEPLOYMENT_MODE=authenticated
       - PAPERCLIP_DEPLOYMENT_EXPOSURE=private
-      - PAPERCLIP_PUBLIC_URL=https://paperclip.aliuntravelsrl.com
+      - PAPERCLIP_PUBLIC_URL=http://localhost:3100
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENAI_API_KEY=${OPENROUTER_API_KEY}
+      - OPENAI_BASE_URL=https://openrouter.ai/api/v1
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - PAPERCLIP_DATA_DIR=/data/paperclip
       - ANTIGRAVITY_URL=http://antigravity:3000
@@ -72,7 +74,8 @@ services:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
       - WORKSPACE_ROOT=/workspaces/ALIUN_ATLAS
-      - OLLAMA_URL=http://ollama:11434
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
       - PAPERCLIP_HEARTBEAT_TOKEN=${INTER_VPS_TOKEN}
     volumes:
       - workspaces_data:/workspaces/ALIUN_ATLAS
@@ -90,9 +93,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-    depends_on:
-      ollama:
-        condition: service_healthy
 
   atlas_marketing:
     build:
@@ -110,7 +110,8 @@ services:
       - SUPABASE_KEY=${SUPABASE_KEY}
       - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
       - WORKSPACE_ROOT=/workspaces/ALIUN_ATLAS
-      - OLLAMA_URL=http://ollama:11434
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
       - PAPERCLIP_HEARTBEAT_TOKEN=${INTER_VPS_TOKEN}
     volumes:
       - workspaces_data:/workspaces/ALIUN_ATLAS
@@ -128,40 +129,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-    depends_on:
-      ollama:
-        condition: service_healthy
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: aliun_ollama
-    restart: unless-stopped
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-    volumes:
-      - ollama_models:/root/.ollama
-    networks:
-      - musculo_net
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
-  ollama_pull:
-    image: ollama/ollama:latest
-    container_name: aliun_ollama_pull
-    restart: "no"
-    volumes:
-      - ollama_models:/root/.ollama
-    networks:
-      - musculo_net
-    entrypoint: >
-      sh -c "sleep 20 && ollama pull llama3.1 && echo '[OLLAMA] llama3.1 listo'"
-    depends_on:
-      ollama:
-        condition: service_healthy
 
 volumes:
   paperclip_data:
@@ -169,8 +136,6 @@ volumes:
   paperclip_db_data:
     driver: local
   workspaces_data:
-    driver: local
-  ollama_models:
     driver: local
 
 networks:
